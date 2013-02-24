@@ -1,0 +1,12 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=4456
+
+VGdb is a perl program that allows the use of vim as a front end to gdb. It
+both works on MS Windows and Linux. It both works in gvim and vim.
+
+It open a vgdb window in vim that allows user to type gdb command
+directly, and gdb output is redirected to this windows. 
+
+MSVC-style shortcuts are defined by default, and MSVC autoexp.dat is partially supported.
+
+A flash demo (__VGDB_DEMO__.htm) in my package helps you quickly go through the
+vgdb features. 
