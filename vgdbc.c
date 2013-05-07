@@ -21,6 +21,8 @@ then run it in VIM:
  #include <sys/socket.h>
  #include <sys/ioctl.h>
  #include <arpa/inet.h>
+ //#define __USE_GNU
+ #include <dlfcn.h>
 
  typedef struct sockaddr_in SOCKADDR_IN;
  typedef struct sockaddr SOCKADDR;
@@ -44,12 +46,46 @@ Limitation:
 
 #define ERR_RET(eno, estr) do {sprintf(RETBUF, "VGdbc Error [%d]: %s", eno, estr); return RETBUF;} while (0)
 
-static char RETBUF[4000];
+void *g_hModule;
+
+static int BUFLEN = 4000;
+static char *RETBUF;
+
+struct InitLib 
+{
+	InitLib();
+	~InitLib();
+} g_initobj;
+
+InitLib::InitLib() 
+{
+	if (RETBUF == NULL)
+	{
+#ifdef _WINDOWS
+		g_hModule = LoadLibrary("vgdbc.dll");
+#else // _LINUX
+		Dl_info di;
+		if (dladdr(RETBUF, &di)) {
+			g_hModule = dlopen(di.dli_fname, RTLD_LAZY);
+		}
+#endif
+		RETBUF = (char*)malloc(BUFLEN);
+	}
+}
+
+InitLib::~InitLib() 
+{
+	free(RETBUF);
+}
+
+extern "C" {
 
 const char *test(const char *cmd)
 {
+	static char lastcmd[100];
 	char *portstr = getenv("VGDB_PORT");
-	sprintf(RETBUF, "%s OK. $VGDB_PORT=%s", cmd, portstr);
+	sprintf(RETBUF, "%s OK. $VGDB_PORT=%s. last test='%s'", cmd, portstr, lastcmd);
+	strncpy(lastcmd, cmd, 100);
 	return RETBUF;
 }
 
@@ -109,21 +145,33 @@ const char *tcpcall(const char *cmd)
 
 	int cnt = 0;
 	char *p = RETBUF;
-	int len = sizeof(RETBUF);
 	int totalcnt = 0;
 	while (1) {
-		cnt=recv(SOCK, p, len-totalcnt-1, 0);
+		cnt=recv(SOCK, p, BUFLEN-totalcnt-1, 0);
 		if (cnt <= 0)
 			break;
 		p += cnt;
 		totalcnt += cnt;
+		if (BUFLEN <= totalcnt+1) {
+			char *tmpbuf = (char*)realloc(RETBUF, BUFLEN <<1);
+			if (tmpbuf == NULL) {
+				while (recv(SOCK, RETBUF-100, 100, 0) > 0); // clear the send buf of the server.
+				strcpy(RETBUF-100, " ... (too long)\n");
+				break;
+			}
+			RETBUF = tmpbuf;
+			p = RETBUF +BUFLEN-1;
+			BUFLEN <<=1;
+		}
 	}
-	if (totalcnt > 0)
+	if (totalcnt >= 0)
 		RETBUF[totalcnt] = 0;
 	closesocket(SOCK);
 	WSACleanup();
 	return RETBUF;
 }
+
+} // extern "C"
 
 int main(int argc, char *argv[])
 {
@@ -135,3 +183,4 @@ int main(int argc, char *argv[])
 	printf("%s\n", ret);
 	return 0;
 }
+

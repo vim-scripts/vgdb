@@ -17,10 +17,13 @@
 VGdb is a perl program that allows the use of vim as a front end to gdb. It
 both works on MS Windows and Linux. It both works in gvim and vim.
 
-It open a __VGDB__ window in vim that allows user to type gdb command
-directly, and gdb output is redirected to this windows. 
+It opens a VGDB window in vim that allows user to type gdb command directly, 
+and gdb output is redirected to this windows.
 
-MSVC-style shortcuts are used, and MSVC autoexp.dat is partially supported.
+MSVC-style shortcuts are defined by default (like F5/F10...), and you can 
+define how to preview structure like MSVC auto expand feature.
+
+A flash demo in my package helps you quickly go through the vgdb features.
 
 ==============================================================================
 *2* Install						*vgdb-install*
@@ -69,31 +72,51 @@ You can directly type "gdb" in vi command line as it's set to be the abbreviatio
 A flash demo (__VGDB_DEMO__.htm) in my package helps you quickly go through the
 vgdb features. Here are how you can use vgdb:
 
-1) Type gdb command in the __VGDB__ window. Some commands are special treated: >
+1) Type gdb command in the __VGDB__ window. Some commands starting with '.'
+are known as "vgdb" commands: >
 
-	c - run or continue
-	p {var} - preview var (not only print)
-	q - quit gdb and vgdb window
-	#0 - equal to "frame 0", and also for #1, #2, ...
+	.c - run or continue
+	q  - quit gdb and vgdb
+	.p {var} - preview var (according to autoexp.dat); shortcut <C-P>
+	.debug={0|1} - disable|enable to show debug info in vgdb
+	.ver  - show vgdb version info
+	.ju {pos} - jump to position (auto tbreak and allow cross-function)
 
-2) Press Enter or double click in the __VGDB__ window to jump into the code position.
+2) Press Enter or double click in the __VGDB__ window (vim normal mode).
 
-Jump to breakpoint: >
-  	i break (or info breakpoints)
-show all breakpoints info and can enter on these lines.
+2.1) Jump to a code point or breakpoint: 
+if a line contains file/lineno like >
+	AddMoney (money=0x7fffffffde20, d=1.1399999999999999) at cpp1.cpp:24
+OR >
+	breakpoint 2 at 0x4009ad: file cpp1.cpp, line 77.
+you can press enter on these lines to go there. Such lines are often
+highlighted.
 
-Jump to a frame of the call stack: >
+2.2) Jump to a frame of the call stack:
+show all frames: >
 	bt (or where)
 it shows frames like this >
 	#0 ...
 	#1 ...
 double click or press <cr> on the #xx line, it directly goto the frame.
 
+2.3) Derefernece a pointer
+A pointer variable is only shown like this: >
+	$1 = (SBOString *) 0x7fffffffde10
+press enter on this line will get the content just like you run >
+	.p *$1
+
+So do struct/class members of pointer type: >
+	$2 = {
+	  m_strData = 0x603010
+	}
+press enter on the line of "m_strData" to show this member instead of pointer.
+
 3) Shortcuts
 
 The following shortcuts is applied that is similar to MSVC: 
 
-	<F5> 	- run or continue
+	<F5> 	- run or continue (.c)
 	<S-F5> 	- stop debugging (kill)
 	<F10> 	- next
 	<F11> 	- step into
@@ -101,7 +124,7 @@ The following shortcuts is applied that is similar to MSVC:
 	<C-F10>	- run to cursor (tb and c)
 	<F9> 	- toggle breakpoint on current line
 	\ju or <C-S-F10> - set next statement (tb and jump)
-	<C-P> 	- view variable under the cursor
+	<C-P> 	- view variable under the cursor (.p)
 
 Note:
 If you use vgdb in the vim in a gnome terminal, the <F11> may be conflict with the 
@@ -121,6 +144,27 @@ on the variable.
 VGdb command has the same effect as you input in the __VGDB__ window. e.g. >
 
 	:VGdb next
+
+6) Execution point jump
+
+VGdb provides simple jump by pressing "\ju" on the new position. More, it
+supports cross-function jump. Here's an example: >
+	void Fun1()
+	{
+	..	Fun2();
+		printf("OK\n");  // <- you want come there directly 
+	}
+	void Fun2()
+	{
+	=>	printf("Fun2\n"); // current execution position
+		...
+	}
+
+It is in Fun2 but you want to directly jump back to the caller Fun1() and
+continue running. You first switch the frame into Fun1, e.g. >
+	:VGdb up
+Then move the cursor to the new line and press "\ju". VGdb will fix the stack
+besides jumping.
 
 ==============================================================================
 *5* Preview variable (auto expand)			*vgdb-preview*
